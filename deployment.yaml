@@ -1,0 +1,46 @@
+# Intentionally vulnerable demo deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      hostNetwork: false            # exposes the node network - patched to false
+      containers:
+        - name: web
+          image: nginx:1.25.3      # unpinned tag - patched to 1.25.3
+          ports:
+            - containerPort: 80
+          securityContext:
+            privileged: false       # full host access - patched to false
+            runAsNonRoot: true      # KSV009: container should not run as root
+            readOnlyRootFilesystem: true # KSV012: ensure an immutable filesystem
+            allowPrivilegeEscalation: false # KSV013: do not allow privilege escalation
+            capabilities:
+              drop:
+                - ALL              # KSV017: drop all capabilities
+            seccompProfile:
+              type: RuntimeDefault # KSV014: use RuntimeDefault seccomp profile
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: web-app-secrets # hardcoded secret - replaced with secretKeyRef
+                  key: DB_PASSWORD
+          resources: # KSV012: add resource limits
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
