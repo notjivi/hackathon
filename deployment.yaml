@@ -1,0 +1,42 @@
+# Intentionally vulnerable demo deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      hostNetwork: false            # hostNetwork disabled
+      containers:
+        - name: web
+          image: nginx:1.21.6      # pinned image tag
+          ports:
+            - containerPort: 80
+          securityContext:
+            privileged: false       # privileged access disabled
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: web-app-secrets
+                  key: DB_PASSWORD
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
