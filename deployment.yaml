@@ -1,0 +1,47 @@
+# Intentionally vulnerable demo deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      hostNetwork: false            # KSV013: hostNetwork should not be enabled
+      securityContext: # Set seccompProfile to RuntimeDefault
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: nginx:1.25.3      # KSV014: Pinned image tag to a specific version to mitigate CVEs
+          ports:
+            - containerPort: 80
+          securityContext:
+            privileged: false       # KSV017: privileged container access is disabled
+            runAsNonRoot: true      # KSV009: Container will run as a non-root user
+            readOnlyRootFilesystem: true # Set readOnlyRootFilesystem to true
+            allowPrivilegeEscalation: false # Prevent privilege escalation
+            capabilities:
+              drop:
+                - ALL # Drop all capabilities
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: web-app-secrets # Replaced hardcoded secret with a reference to a Kubernetes Secret
+                  key: DB_PASSWORD
+          resources: # KSV012: Added resource limits
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
