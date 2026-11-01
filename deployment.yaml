@@ -1,0 +1,49 @@
+# Intentionally vulnerable demo deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      hostNetwork: false            # exposes the node network (patched to false)
+      securityContext: # Added pod-level securityContext
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        hostPID: false # Added hostPID: false
+      containers:
+        - name: web
+          image: nginx:1.25.3      # unpinned tag (patched to 1.25.3)
+          ports:
+            - containerPort: 80
+          securityContext:
+            privileged: false       # full host access (patched to false)
+            # runAsUser: 0 # Removed runAsUser: 0, replaced by runAsNonRoot: true at pod level
+            allowPrivilegeEscalation: false # Added allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true # Added readOnlyRootFilesystem: true
+            capabilities: # Added capabilities to drop ALL
+              drop:
+                - ALL
+          env:
+            - name: DB_PASSWORD
+              valueFrom: # hardcoded secret (patched to use secretKeyRef)
+                secretKeyRef:
+                  name: web-app-secrets
+                  key: DB_PASSWORD
+          resources: # Added resource limits
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
